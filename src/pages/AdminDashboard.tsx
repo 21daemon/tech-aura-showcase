@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/hooks/use-toast";
@@ -25,29 +24,46 @@ export function AdminDashboard() {
     try {
       setIsLoading(true);
       
-      // Fetch all bookings with their emails directly if available
+      // First, get all bookings with profile data when available
       const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
-        .select('*, profiles(id, full_name, email)')
+        .select('*, profiles:profiles(id, full_name, email)')
         .order('date', { ascending: false });
         
       if (bookingsError) throw bookingsError;
       
       console.log("Raw bookings data:", bookingsData);
       
-      // Process the bookings to ensure all data is properly structured
-      const processedBookings = bookingsData?.map(booking => {
-        // Make sure profiles is properly formatted - in some cases it might be null
-        const processedBooking = {
-          ...booking,
-          profiles: booking.profiles || null
-        };
+      // Now, supplement email information for bookings without profiles
+      const enhancedBookings = await Promise.all((bookingsData || []).map(async (booking) => {
+        // If we already have profile email info, use it
+        if (booking.profiles && booking.profiles.email) {
+          return booking;
+        }
         
-        return processedBooking;
-      }) || [];
+        // Otherwise, try to find user email directly from auth.users via an edge function
+        try {
+          const { data: userData, error: userError } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('id', booking.user_id)
+            .single();
+            
+          if (!userError && userData) {
+            return {
+              ...booking,
+              email: userData.email
+            };
+          }
+        } catch (error) {
+          console.error("Error fetching user email for booking:", error);
+        }
+        
+        return booking;
+      }));
       
-      console.log("Processed bookings:", processedBookings);
-      setBookings(processedBookings);
+      console.log("Enhanced bookings with emails:", enhancedBookings);
+      setBookings(enhancedBookings);
       
     } catch (error) {
       console.error("Error fetching bookings:", error);

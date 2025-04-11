@@ -43,7 +43,7 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
   const filteredBookings = bookings.filter(booking => {
     const searchString = (
       (booking.profiles?.full_name || '') +
-      (booking.profiles?.email || '') +
+      (booking.profiles?.email || booking.email || '') +
       booking.service_name +
       booking.car_make +
       booking.car_model
@@ -143,39 +143,6 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
       setIsDeleting(true);
       console.log("Attempting to delete booking:", bookingToDelete);
       
-      const { data: progressUpdates, error: fetchError } = await supabase
-        .from('progress_updates')
-        .select('image_url')
-        .eq('booking_id', bookingToDelete);
-      
-      if (fetchError) {
-        console.error("Error fetching progress updates:", fetchError);
-      } else if (progressUpdates && progressUpdates.length > 0) {
-        const imagePaths = progressUpdates
-          .map(update => {
-            try {
-              const url = new URL(update.image_url);
-              const pathParts = url.pathname.split('/');
-              return pathParts[pathParts.length - 1];
-            } catch (e) {
-              console.error("Invalid URL format:", update.image_url);
-              return null;
-            }
-          })
-          .filter(path => path !== null);
-        
-        if (imagePaths.length > 0) {
-          const { error: storageError } = await supabase
-            .storage
-            .from('progress-photos')
-            .remove(imagePaths);
-          
-          if (storageError) {
-            console.error("Error removing images from storage:", storageError);
-          }
-        }
-      }
-      
       const { error: progressDeleteError } = await supabase
         .from('progress_updates')
         .delete()
@@ -183,6 +150,7 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
       
       if (progressDeleteError) {
         console.error("Error deleting progress updates:", progressDeleteError);
+        throw progressDeleteError;
       }
       
       const { error } = await supabase
