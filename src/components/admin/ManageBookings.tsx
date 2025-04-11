@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { 
   RefreshCw, 
   ChevronDown, 
@@ -40,7 +39,6 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
   const [bookingToDelete, setBookingToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Filter bookings based on search term
   const filteredBookings = bookings.filter(booking => {
     const searchString = (
       (booking.profiles?.full_name || '') +
@@ -53,7 +51,6 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
     return searchString.includes(searchTerm.toLowerCase());
   });
 
-  // Sort bookings based on selected column and direction
   const sortedBookings = [...filteredBookings].sort((a, b) => {
     if (sortBy === 'date') {
       return sortDirection === 'asc' 
@@ -114,7 +111,6 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
       
       if (error) throw error;
       
-      // Update the status in the selected booking
       if (selectedBooking && selectedBooking.id === bookingId) {
         setSelectedBooking({
           ...selectedBooking,
@@ -122,7 +118,6 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
         });
       }
       
-      // Refresh the bookings list
       await onRefresh();
       
       toast({
@@ -144,22 +139,26 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
     if (!bookingToDelete) return;
     
     try {
+      console.log("Attempting to delete booking:", bookingToDelete);
+      
       const { error } = await supabase
         .from('bookings')
         .delete()
         .eq('id', bookingToDelete);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Database delete error:", error);
+        throw error;
+      }
       
-      // If the deleted booking was selected, clear the selection
+      console.log("Database delete operation completed");
+      
       if (selectedBooking && selectedBooking.id === bookingToDelete) {
         setSelectedBooking(null);
       }
       
-      // Reset the bookingToDelete state
       setBookingToDelete(null);
       
-      // Refresh the bookings list
       await onRefresh();
       
       toast({
@@ -174,6 +173,12 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
         description: error.message || "Could not delete booking",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleInitiateDelete = () => {
+    if (selectedBooking) {
+      setBookingToDelete(selectedBooking.id);
     }
   };
 
@@ -211,7 +216,7 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
           <ManageBookingDetails 
             booking={selectedBooking} 
             onStatusUpdate={handleUpdateStatus} 
-            onDeleteBooking={() => setBookingToDelete(selectedBooking.id)}
+            onDeleteBooking={handleInitiateDelete}
           />
         </div>
       ) : (
@@ -325,7 +330,6 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
         </div>
       )}
       
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!bookingToDelete} onOpenChange={(isOpen) => !isOpen && setBookingToDelete(null)}>
         <AlertDialogContent className="bg-luxury-800 border-white/10">
           <AlertDialogHeader>

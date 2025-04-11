@@ -30,11 +30,13 @@ interface Booking {
 interface ManageBookingDetailsProps {
   booking: Booking;
   onStatusUpdate: (bookingId: string, newStatus: string) => Promise<void>;
+  onDeleteBooking: () => void;
 }
 
 const ManageBookingDetails: React.FC<ManageBookingDetailsProps> = ({
   booking,
-  onStatusUpdate
+  onStatusUpdate,
+  onDeleteBooking
 }) => {
   const [showPhotoUploader, setShowPhotoUploader] = useState(false);
   const [manualEmail, setManualEmail] = useState('');
@@ -194,6 +196,17 @@ const ManageBookingDetails: React.FC<ManageBookingDetailsProps> = ({
               Cancel
             </Button>
           </div>
+        </div>
+        
+        <div className="flex justify-end">
+          <Button 
+            size="sm" 
+            variant="destructive"
+            onClick={onDeleteBooking}
+            className="bg-red-500 hover:bg-red-600 text-white"
+          >
+            Delete Booking
+          </Button>
         </div>
         
         {booking.status === 'in_progress' && (
