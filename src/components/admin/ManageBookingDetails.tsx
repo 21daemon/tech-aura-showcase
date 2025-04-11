@@ -161,6 +161,11 @@ const ManageBookingDetails: React.FC<ManageBookingDetailsProps> = ({
               <Mail className="h-4 w-4 text-amber-500" />
               <span className="text-sm text-white/70">Email:</span>
               <span className="font-medium text-white">{customerEmail || 'N/A'}</span>
+              {!hasEmail && (
+                <Badge variant="outline" className="text-amber-400 border-amber-400">
+                  Missing
+                </Badge>
+              )}
             </div>
           </div>
         </div>

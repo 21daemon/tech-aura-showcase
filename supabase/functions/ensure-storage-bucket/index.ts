@@ -38,7 +38,7 @@ serve(async (req) => {
       const { error: createError } = await supabase
         .storage
         .createBucket("progress-photos", {
-          public: false,
+          public: true, // Changed to public for easier access
           fileSizeLimit: 10485760, // 10MB
           allowedMimeTypes: ["image/png", "image/jpeg", "image/jpg", "image/webp"]
         });
@@ -47,7 +47,7 @@ serve(async (req) => {
         throw new Error(`Error creating bucket: ${createError.message}`);
       }
       
-      // Set up RLS policy for the bucket
+      // Set up public access policy for the bucket
       const { error: policyError } = await supabase
         .storage
         .from("progress-photos")

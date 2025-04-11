@@ -37,6 +37,7 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [bookingToDelete, setBookingToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const filteredBookings = bookings.filter(booking => {
@@ -139,7 +140,41 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
     if (!bookingToDelete) return;
     
     try {
+      setIsDeleting(true);
       console.log("Attempting to delete booking:", bookingToDelete);
+      
+      const { data: progressUpdates, error: fetchError } = await supabase
+        .from('progress_updates')
+        .select('image_url')
+        .eq('booking_id', bookingToDelete);
+      
+      if (fetchError) {
+        console.error("Error fetching progress updates:", fetchError);
+      } else if (progressUpdates && progressUpdates.length > 0) {
+        const imagePaths = progressUpdates
+          .map(update => {
+            try {
+              const url = new URL(update.image_url);
+              const pathParts = url.pathname.split('/');
+              return pathParts[pathParts.length - 1];
+            } catch (e) {
+              console.error("Invalid URL format:", update.image_url);
+              return null;
+            }
+          })
+          .filter(path => path !== null);
+        
+        if (imagePaths.length > 0) {
+          const { error: storageError } = await supabase
+            .storage
+            .from('progress-photos')
+            .remove(imagePaths);
+          
+          if (storageError) {
+            console.error("Error removing images from storage:", storageError);
+          }
+        }
+      }
       
       const { error: progressDeleteError } = await supabase
         .from('progress_updates')
@@ -182,13 +217,14 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
         description: error.message || "Could not delete booking",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleInitiateDelete = () => {
     if (selectedBooking) {
       setBookingToDelete(selectedBooking.id);
-      handleDeleteBooking();
     }
   };
 
@@ -272,7 +308,7 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
                     <TableCell>
                       {booking.profiles?.full_name || 'N/A'}
                       <div className="text-xs text-muted-foreground">{booking.car_make} {booking.car_model}</div>
-                      {!booking.profiles?.email && (
+                      {!booking.profiles?.email && !booking.email && (
                         <div className="text-xs text-amber-500">No email available</div>
                       )}
                     </TableCell>
@@ -340,7 +376,7 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
         </div>
       )}
       
-      <AlertDialog open={!!bookingToDelete} onOpenChange={(isOpen) => !isOpen && setBookingToDelete(null)}>
+      <AlertDialog open={!!bookingToDelete && !isDeleting} onOpenChange={(isOpen) => !isOpen && setBookingToDelete(null)}>
         <AlertDialogContent className="bg-luxury-800 border-white/10">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white">Delete Booking</AlertDialogTitle>
@@ -358,8 +394,9 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
             <AlertDialogAction 
               className="bg-red-500 text-white hover:bg-red-600"
               onClick={handleDeleteBooking}
+              disabled={isDeleting}
             >
-              Delete
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

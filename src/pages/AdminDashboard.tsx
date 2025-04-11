@@ -25,52 +25,29 @@ export function AdminDashboard() {
     try {
       setIsLoading(true);
       
-      // Fetch bookings
+      // Fetch all bookings with their emails directly if available
       const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
-        .select('*')
+        .select('*, profiles(id, full_name, email)')
         .order('date', { ascending: false });
         
       if (bookingsError) throw bookingsError;
       
-      // If we successfully get bookings, now let's fetch all profiles
-      if (bookingsData && bookingsData.length > 0) {
-        // Get unique user IDs from bookings
-        const userIds = [...new Set(bookingsData.map(booking => booking.user_id))];
-        
-        // Fetch all profiles (not just the ones linked to bookings)
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, email');
-          
-        if (profilesError) {
-          console.error("Error fetching profiles:", profilesError);
-          toast({
-            title: "Error",
-            description: "Failed to load profile information",
-            variant: "destructive",
-          });
-        }
-        
-        // Create a map of user_id to profile data for quick lookup
-        const profilesMap = (profilesData || []).reduce((map, profile) => {
-          if (profile.id) {
-            map[profile.id] = profile;
-          }
-          return map;
-        }, {});
-        
-        // Attach profile data to each booking
-        const bookingsWithProfiles = bookingsData.map(booking => ({
+      console.log("Raw bookings data:", bookingsData);
+      
+      // Process the bookings to ensure all data is properly structured
+      const processedBookings = bookingsData?.map(booking => {
+        // Make sure profiles is properly formatted - in some cases it might be null
+        const processedBooking = {
           ...booking,
-          profiles: profilesMap[booking.user_id] || null
-        }));
+          profiles: booking.profiles || null
+        };
         
-        console.log("Fetched bookings with profiles:", bookingsWithProfiles);
-        setBookings(bookingsWithProfiles);
-      } else {
-        setBookings(bookingsData || []);
-      }
+        return processedBooking;
+      }) || [];
+      
+      console.log("Processed bookings:", processedBookings);
+      setBookings(processedBookings);
       
     } catch (error) {
       console.error("Error fetching bookings:", error);
