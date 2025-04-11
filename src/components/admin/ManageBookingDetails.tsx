@@ -40,19 +40,15 @@ const ManageBookingDetails: React.FC<ManageBookingDetailsProps> = ({
   const [showPhotoUploader, setShowPhotoUploader] = useState(false);
   const [manualEmail, setManualEmail] = useState('');
   
-  // Enhanced function to safely get customer email with multiple fallbacks
   const getCustomerEmail = () => {
-    // Check if email exists on profiles object
-    if (booking.profiles && booking.profiles.email) {
-      return booking.profiles.email;
-    }
-    
-    // Check if email exists directly on booking
     if (booking.email) {
       return booking.email;
     }
     
-    // Return manually entered email or empty string
+    if (booking.profiles && booking.profiles.email) {
+      return booking.profiles.email;
+    }
+    
     return manualEmail || '';
   };
 
@@ -87,7 +83,6 @@ const ManageBookingDetails: React.FC<ManageBookingDetailsProps> = ({
   const handleStatusChange = async (newStatus: string) => {
     await onStatusUpdate(booking.id, newStatus);
     
-    // If status changed to in_progress, show the photo uploader
     if (newStatus === 'in_progress') {
       setShowPhotoUploader(true);
     }
@@ -257,7 +252,7 @@ const ManageBookingDetails: React.FC<ManageBookingDetailsProps> = ({
               <ProgressPhotoUploader 
                 bookingId={booking.id} 
                 customerEmail={customerEmail || manualEmail} 
-                carDetails={carDetails}
+                carDetails={`${booking.car_make} ${booking.car_model}`}
               />
             )}
           </div>

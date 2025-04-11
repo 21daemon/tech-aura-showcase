@@ -24,41 +24,69 @@ export function AdminDashboard() {
     try {
       setIsLoading(true);
       
-      // First, get all bookings with profile data when available
-      const { data: bookingsData, error: bookingsError } = await supabase
+      // Get all bookings with associated profiles
+      let { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
-        .select('*, profiles:profiles(id, full_name, email)')
+        .select(`
+          *,
+          profiles:profiles(id, full_name, email)
+        `)
         .order('date', { ascending: false });
         
       if (bookingsError) throw bookingsError;
       
       console.log("Raw bookings data:", bookingsData);
       
-      // Now, supplement email information for bookings without profiles
+      // For each booking, ensure we have an email field directly on the booking object
       const enhancedBookings = await Promise.all((bookingsData || []).map(async (booking) => {
-        // If we already have profile email info, use it
+        // If profiles contains email, add it directly to booking object
         if (booking.profiles && booking.profiles.email) {
-          return booking;
+          return {
+            ...booking,
+            email: booking.profiles.email
+          };
         }
         
-        // Otherwise, try to find user email directly from auth.users via an edge function
+        // Otherwise, try to fetch the user's email separately
         try {
+          // First try to get email from profiles table by user_id
           const { data: userData, error: userError } = await supabase
             .from('profiles')
             .select('email')
             .eq('id', booking.user_id)
             .single();
-            
-          if (!userError && userData) {
+          
+          if (!userError && userData && userData.email) {
             return {
               ...booking,
               email: userData.email
             };
           }
+          
+          // If we couldn't get from profiles, try directly from auth schema via edge function
+          // This is a fallback mechanism
+          const { data: authUserData, error: authError } = await supabase.functions.invoke('execute-sql', {
+            body: {
+              query_text: `
+                SELECT email 
+                FROM auth.users 
+                WHERE id = $1::uuid
+              `,
+              query_params: [booking.user_id]
+            }
+          });
+          
+          if (!authError && authUserData && authUserData.length > 0) {
+            return {
+              ...booking,
+              email: authUserData[0].email
+            };
+          }
         } catch (error) {
-          console.error("Error fetching user email for booking:", error);
+          console.error("Error fetching email for booking:", error);
         }
         
+        // If all attempts fail, return booking without email
         return booking;
       }));
       
