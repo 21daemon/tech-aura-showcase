@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { 
   RefreshCw, 
   ChevronDown, 
@@ -141,6 +141,15 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
     try {
       console.log("Attempting to delete booking:", bookingToDelete);
       
+      const { error: progressDeleteError } = await supabase
+        .from('progress_updates')
+        .delete()
+        .eq('booking_id', bookingToDelete);
+      
+      if (progressDeleteError) {
+        console.error("Error deleting progress updates:", progressDeleteError);
+      }
+      
       const { error } = await supabase
         .from('bookings')
         .delete()
@@ -179,6 +188,7 @@ const ManageBookings: React.FC<BookingsProps> = ({ bookings, onRefresh }) => {
   const handleInitiateDelete = () => {
     if (selectedBooking) {
       setBookingToDelete(selectedBooking.id);
+      handleDeleteBooking();
     }
   };
 

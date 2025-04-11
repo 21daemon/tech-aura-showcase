@@ -41,15 +41,19 @@ const ManageBookingDetails: React.FC<ManageBookingDetailsProps> = ({
   const [showPhotoUploader, setShowPhotoUploader] = useState(false);
   const [manualEmail, setManualEmail] = useState('');
   
-  // Function to safely get customer email even if profiles object structure varies
+  // Enhanced function to safely get customer email with multiple fallbacks
   const getCustomerEmail = () => {
+    // Check if email exists on profiles object
     if (booking.profiles && booking.profiles.email) {
       return booking.profiles.email;
     }
-    // Fallback - check if there's an email property directly on booking
+    
+    // Check if email exists directly on booking
     if (booking.email) {
       return booking.email;
     }
+    
+    // Return manually entered email or empty string
     return manualEmail || '';
   };
 

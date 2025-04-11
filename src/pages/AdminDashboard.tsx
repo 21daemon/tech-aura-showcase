@@ -25,35 +25,43 @@ export function AdminDashboard() {
     try {
       setIsLoading(true);
       
-      // Modify the query to avoid using the join that's causing the error
-      const { data, error } = await supabase
+      // Fetch bookings
+      const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
         .select('*')
         .order('date', { ascending: false });
         
-      if (error) throw error;
+      if (bookingsError) throw bookingsError;
       
-      // If we successfully get bookings, now let's fetch the related profiles in a separate query
-      if (data && data.length > 0) {
+      // If we successfully get bookings, now let's fetch all profiles
+      if (bookingsData && bookingsData.length > 0) {
         // Get unique user IDs from bookings
-        const userIds = [...new Set(data.map(booking => booking.user_id))];
+        const userIds = [...new Set(bookingsData.map(booking => booking.user_id))];
         
-        // Fetch profiles for those users
+        // Fetch all profiles (not just the ones linked to bookings)
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
-          .select('id, full_name, email')
-          .in('id', userIds);
+          .select('id, full_name, email');
           
-        if (profilesError) console.error("Error fetching profiles:", profilesError);
+        if (profilesError) {
+          console.error("Error fetching profiles:", profilesError);
+          toast({
+            title: "Error",
+            description: "Failed to load profile information",
+            variant: "destructive",
+          });
+        }
         
         // Create a map of user_id to profile data for quick lookup
         const profilesMap = (profilesData || []).reduce((map, profile) => {
-          map[profile.id] = profile;
+          if (profile.id) {
+            map[profile.id] = profile;
+          }
           return map;
         }, {});
         
         // Attach profile data to each booking
-        const bookingsWithProfiles = data.map(booking => ({
+        const bookingsWithProfiles = bookingsData.map(booking => ({
           ...booking,
           profiles: profilesMap[booking.user_id] || null
         }));
@@ -61,7 +69,7 @@ export function AdminDashboard() {
         console.log("Fetched bookings with profiles:", bookingsWithProfiles);
         setBookings(bookingsWithProfiles);
       } else {
-        setBookings(data || []);
+        setBookings(bookingsData || []);
       }
       
     } catch (error) {
